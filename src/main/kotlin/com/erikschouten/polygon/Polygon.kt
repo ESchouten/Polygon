@@ -1,309 +1,132 @@
 package com.erikschouten.polygon
 
-import java.awt.geom.AffineTransform
-import java.awt.geom.PathIterator
-import java.awt.geom.Point2D
-import java.awt.geom.Rectangle2D
-import sun.awt.geom.Crossings
-import java.awt.Point
-import java.awt.Rectangle
-import java.awt.Shape
-import java.io.Serializable
+import java.util.*
 
-private const val MIN_LENGTH = 4
+class Polygon private constructor(
+    private val sides: List<Line>,
+    private val boundingBox: BoundingBox
+) {
 
-class Polygon(var xpoints: IntArray,
-              var ypoints: IntArray,
-              var npoints: Int = 0) : Shape, Serializable {
+    operator fun contains(point: Point): Boolean {
+        if (inBoundingBox(point)) {
+            val ray = createRay(point)
+            var intersection = 0
+            for (side in sides) {
+                if (intersect(ray, side)) {
+                    intersection++
+                }
+            }
 
-    private var bounds: Rectangle? = null
-
-    constructor(): this(IntArray(MIN_LENGTH), IntArray(MIN_LENGTH))
-
-    init {
-        if (npoints > xpoints.size || npoints > ypoints.size) {
-            throw IndexOutOfBoundsException("npoints > xpoints.length || " + "npoints > ypoints.length")
+            if (intersection % 2 != 0) {
+                return true
+            }
         }
-
-        if (npoints < 0) {
-            throw NegativeArraySizeException("npoints < 0")
-        }
+        return false
     }
 
-    private fun calculateBounds(xpoints: IntArray, ypoints: IntArray, npoints: Int) {
-        var boundsMinX = Integer.MAX_VALUE
-        var boundsMinY = Integer.MAX_VALUE
-        var boundsMaxX = Integer.MIN_VALUE
-        var boundsMaxY = Integer.MIN_VALUE
+    private fun intersect(ray: Line, side: Line): Boolean {
+        val intersectPoint: Point
 
-        for (i in 0 until npoints) {
-            val x = xpoints[i]
-            boundsMinX = Math.min(boundsMinX, x)
-            boundsMaxX = Math.max(boundsMaxX, x)
-            val y = ypoints[i]
-            boundsMinY = Math.min(boundsMinY, y)
-            boundsMaxY = Math.max(boundsMaxY, y)
-        }
-        bounds = Rectangle(
-            boundsMinX, boundsMinY,
-            boundsMaxX - boundsMinX,
-            boundsMaxY - boundsMinY
-        )
-    }
+        if (!ray.isVertical && !side.isVertical) {
+            if (ray.a - side.a == 0.0) {
+                return false
+            }
 
-    private fun updateBounds(x: Int, y: Int) {
-        if (x < bounds!!.x) {
-            bounds!!.width = bounds!!.width + (bounds!!.x - x)
-            bounds!!.x = x
+            val x = (side.b - ray.b) / (ray.a - side.a)
+            val y = side.a * x + side.b
+            intersectPoint = Point(x, y)
+        } else if (ray.isVertical && !side.isVertical) {
+            val x = ray.start.x
+            val y = side.a * x + side.b
+            intersectPoint = Point(x, y)
+        } else if (!ray.isVertical && side.isVertical) {
+            val x = side.start.x
+            val y = ray.a * x + ray.b
+            intersectPoint = Point(x, y)
         } else {
-            bounds!!.width = Math.max(bounds!!.width, x - bounds!!.x)
-        }
-
-        if (y < bounds!!.y) {
-            bounds!!.height = bounds!!.height + (bounds!!.y - y)
-            bounds!!.y = y
-        } else {
-            bounds!!.height = Math.max(bounds!!.height, y - bounds!!.y)
-        }
-    }
-
-    fun addPoint(x: Int, y: Int) {
-        if (npoints >= xpoints.size || npoints >= ypoints.size) {
-            var newLength = npoints * 2
-
-            if (newLength < MIN_LENGTH) {
-                newLength = MIN_LENGTH
-            } else if (newLength and newLength - 1 != 0) {
-                newLength = Integer.highestOneBit(newLength)
-            }
-
-            xpoints = xpoints.copyOf(newLength)
-            ypoints = ypoints.copyOf(newLength)
-        }
-        xpoints[npoints] = x
-        ypoints[npoints] = y
-        npoints++
-        if (bounds != null) {
-            updateBounds(x, y)
-        }
-    }
-
-    override fun getBounds(): Rectangle {
-        if (npoints == 0) {
-            return Rectangle()
-        }
-        if (bounds == null) {
-            calculateBounds(xpoints, ypoints, npoints)
-        }
-        return bounds!!.bounds
-    }
-
-    operator fun contains(p: Point): Boolean {
-        return contains(p.x, p.y)
-    }
-
-    fun contains(x: Int, y: Int): Boolean {
-        return contains(x.toDouble(), y.toDouble())
-    }
-
-    override fun getBounds2D(): Rectangle2D {
-        return getBounds()
-    }
-
-    override fun contains(x: Double, y: Double): Boolean {
-        if (npoints <= 2 || !getBounds().contains(x, y)) {
             return false
         }
-        var hits = 0
 
-        var lastx = xpoints[npoints - 1]
-        var lasty = ypoints[npoints - 1]
-        var curx: Int
-        var cury: Int
+        return side.isInside(intersectPoint) && ray.isInside(intersectPoint)
+    }
 
-        var i = 0
-        while (i < npoints) {
-            curx = xpoints[i]
-            cury = ypoints[i]
+    private fun createRay(point: Point): Line {
+        val epsilon = (boundingBox.xMax - boundingBox.xMin) / 10e6
+        val outsidePoint = Point(boundingBox.xMin - epsilon, boundingBox.yMin)
 
-            if (cury == lasty) {
-                lastx = curx
-                lasty = cury
-                i++
-                continue
+        return Line(outsidePoint, point)
+    }
+
+    private fun inBoundingBox(point: Point) =
+        point.x in boundingBox.xMin..boundingBox.xMax && point.y in boundingBox.yMin..boundingBox.yMax
+
+    class Builder {
+        private var vertexes: MutableList<Point> = ArrayList()
+        private val sides = ArrayList<Line>()
+        private var boundingBox: BoundingBox = BoundingBox()
+
+        private var firstPoint = true
+        private var isClosed = false
+
+        fun addVertex(point: Point): Builder {
+            if (isClosed) {
+                vertexes = ArrayList()
+                isClosed = false
             }
 
-            val leftx: Int
-            if (curx < lastx) {
-                if (x >= lastx) {
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                leftx = curx
+            updateBoundingBox(point)
+            vertexes.add(point)
+
+            if (vertexes.size > 1) {
+                val line = Line(vertexes[vertexes.size - 2], point)
+                sides.add(line)
+            }
+
+            return this
+        }
+
+        fun close(): Builder {
+            validate()
+
+            sides.add(Line(vertexes[vertexes.size - 1], vertexes[0]))
+            isClosed = true
+
+            return this
+        }
+
+        fun build(): Polygon {
+            validate()
+
+            if (!isClosed) {
+                sides.add(Line(vertexes[vertexes.size - 1], vertexes[0]))
+            }
+
+            return Polygon(sides, boundingBox)
+        }
+
+        private fun updateBoundingBox(point: Point) {
+            if (firstPoint) {
+                boundingBox = BoundingBox()
+                firstPoint = false
             } else {
-                if (x >= curx) {
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                leftx = lastx
-            }
-
-            val test1: Double
-            val test2: Double
-            if (cury < lasty) {
-                if (y < cury || y >= lasty) {
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                if (x < leftx) {
-                    hits++
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                test1 = x - curx
-                test2 = y - cury
-            } else {
-                if (y < lasty || y >= cury) {
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                if (x < leftx) {
-                    hits++
-                    lastx = curx
-                    lasty = cury
-                    i++
-                    continue
-                }
-                test1 = x - lastx
-                test2 = y - lasty
-            }
-
-            if (test1 < test2 / (lasty - cury) * (lastx - curx)) {
-                hits++
-            }
-            lastx = curx
-            lasty = cury
-            i++
-        }
-
-        return hits and 1 != 0
-    }
-
-    private fun getCrossings(
-        xlo: Double, ylo: Double,
-        xhi: Double, yhi: Double
-    ): Crossings? {
-        val cross = Crossings.EvenOdd(xlo, ylo, xhi, yhi)
-        var lastx = xpoints[npoints - 1]
-        var lasty = ypoints[npoints - 1]
-        var curx: Int
-        var cury: Int
-
-        // Walk the edges of the polygon
-        for (i in 0 until npoints) {
-            curx = xpoints[i]
-            cury = ypoints[i]
-            if (cross.accumulateLine(lastx.toDouble(), lasty.toDouble(), curx.toDouble(), cury.toDouble())) {
-                return null
-            }
-            lastx = curx
-            lasty = cury
-        }
-
-        return cross
-    }
-
-    override fun contains(p: Point2D): Boolean {
-        return contains(p.x, p.y)
-    }
-
-    override fun intersects(x: Double, y: Double, w: Double, h: Double): Boolean {
-        if (npoints <= 0 || !getBounds().intersects(x, y, w, h)) {
-            return false
-        }
-
-        val cross = getCrossings(x, y, x + w, y + h)
-        return cross == null || !cross.isEmpty
-    }
-
-    override fun intersects(r: Rectangle2D): Boolean {
-        return intersects(r.x, r.y, r.width, r.height)
-    }
-
-    override fun contains(x: Double, y: Double, w: Double, h: Double): Boolean {
-        if (npoints <= 0 || !getBounds().intersects(x, y, w, h)) {
-            return false
-        }
-
-        val cross = getCrossings(x, y, x + w, y + h)
-        return cross != null && cross.covers(y, y + h)
-    }
-
-    override fun contains(r: Rectangle2D): Boolean {
-        return contains(r.x, r.y, r.width, r.height)
-    }
-
-    override fun getPathIterator(at: AffineTransform): PathIterator {
-        return PolygonPathIterator(this, at)
-    }
-
-    override fun getPathIterator(at: AffineTransform, flatness: Double): PathIterator {
-        return getPathIterator(at)
-    }
-
-    internal inner class PolygonPathIterator(var poly: Polygon, var transform: AffineTransform?) : PathIterator {
-        var index: Int = 0
-
-        init {
-            if (poly.npoints == 0) {
-                index = 1
+                boundingBox.xMin = Math.min(boundingBox.xMin, point.x)
+                boundingBox.xMax = Math.max(boundingBox.xMax, point.x)
+                boundingBox.yMin = Math.min(boundingBox.yMin, point.y)
+                boundingBox.yMax = Math.max(boundingBox.yMax, point.y)
             }
         }
 
-        override fun getWindingRule(): Int {
-            return PathIterator.WIND_EVEN_ODD
-        }
-
-        override fun isDone(): Boolean {
-            return index > poly.npoints
-        }
-
-        override fun next() {
-            index++
-        }
-
-        override fun currentSegment(coords: FloatArray): Int {
-            if (index >= poly.npoints) {
-                return PathIterator.SEG_CLOSE
+        private fun validate() {
+            if (vertexes.size < 3) {
+                throw RuntimeException("Polygon must have at least 3 points")
             }
-            coords[0] = poly.xpoints[index].toFloat()
-            coords[1] = poly.ypoints[index].toFloat()
-            if (transform != null) {
-                transform!!.transform(coords, 0, coords, 0, 1)
-            }
-            return if (index == 0) PathIterator.SEG_MOVETO else PathIterator.SEG_LINETO
         }
+    }
 
-        override fun currentSegment(coords: DoubleArray): Int {
-            if (index >= poly.npoints) {
-                return PathIterator.SEG_CLOSE
-            }
-            coords[0] = poly.xpoints[index].toDouble()
-            coords[1] = poly.ypoints[index].toDouble()
-            if (transform != null) {
-                transform!!.transform(coords, 0, coords, 0, 1)
-            }
-            return if (index == 0) PathIterator.SEG_MOVETO else PathIterator.SEG_LINETO
-        }
+    private class BoundingBox {
+        var xMax = java.lang.Double.NEGATIVE_INFINITY
+        var xMin = java.lang.Double.POSITIVE_INFINITY
+        var yMax = java.lang.Double.NEGATIVE_INFINITY
+        var yMin = java.lang.Double.POSITIVE_INFINITY
     }
 }
