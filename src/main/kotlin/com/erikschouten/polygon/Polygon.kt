@@ -7,6 +7,8 @@ class Polygon private constructor(
     private val boundingBox: BoundingBox
 ) {
 
+    fun contains(x: Number, y: Number) = contains(Point(x, y))
+
     operator fun contains(point: Point): Boolean {
         if (inBoundingBox(point)) {
             val ray = createRay(point)
@@ -66,6 +68,8 @@ class Polygon private constructor(
         private var boundingBox: BoundingBox = BoundingBox()
 
         private var isClosed = false
+
+        fun addVertex(x: Number, y: Number) = addVertex(Point(x, y))
 
         fun addVertex(point: Point): Builder {
             if (isClosed) {

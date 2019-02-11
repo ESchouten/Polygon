@@ -131,22 +131,32 @@ class PolygonTests {
     @Test
     fun testBorders() {
 
-        var polygon = Polygon.Builder()
+        val polygon = Polygon.Builder()
             .addVertex(Point(-1, -1))
             .addVertex(Point(-1, 1))
             .addVertex(Point(1, 1))
             .addVertex(Point(1, -1))
             .build()
+
+        /*
+         * Unfortunately, this method won't work if the point is on the edge of the polygon.
+         * https://en.wikipedia.org/wiki/Point_in_polygon#Ray_casting_algorithm
+         */
 
         assert(!polygon.contains(Point(0, 1)))
+        assert(polygon.contains(Point(-1, 0)))
+    }
 
-        polygon = Polygon.Builder()
-            .addVertex(Point(-1, -1))
-            .addVertex(Point(-1, 1))
-            .addVertex(Point(1, 1))
-            .addVertex(Point(1, -1))
+    @Test
+    fun latLonTest() {
+        val polygon = Polygon.Builder()
+            .addVertex(52.3545238, 4.9585468)
+            .addVertex(52.3545238, 4.9585470)
+            .addVertex(52.3545240, 4.9585470)
+            .addVertex(52.3545240, 4.9585468)
             .build()
 
-        assert(polygon.contains(Point(-1, 0)))
+        assert(polygon.contains(52.3545238, 4.9585468))
+        assert(polygon.contains(52.3545239, 4.9585469))
     }
 }
