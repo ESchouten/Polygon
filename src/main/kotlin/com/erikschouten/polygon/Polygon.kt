@@ -65,7 +65,6 @@ class Polygon private constructor(
         private val sides = ArrayList<Line>()
         private var boundingBox: BoundingBox = BoundingBox()
 
-        private var firstPoint = true
         private var isClosed = false
 
         fun addVertex(point: Point): Builder {
@@ -105,15 +104,10 @@ class Polygon private constructor(
         }
 
         private fun updateBoundingBox(point: Point) {
-            if (firstPoint) {
-                boundingBox = BoundingBox()
-                firstPoint = false
-            } else {
-                boundingBox.xMin = Math.min(boundingBox.xMin, point.x)
-                boundingBox.xMax = Math.max(boundingBox.xMax, point.x)
-                boundingBox.yMin = Math.min(boundingBox.yMin, point.y)
-                boundingBox.yMax = Math.max(boundingBox.yMax, point.y)
-            }
+            boundingBox.xMin = Math.min(boundingBox.xMin, point.x)
+            boundingBox.xMax = Math.max(boundingBox.xMax, point.x)
+            boundingBox.yMin = Math.min(boundingBox.yMin, point.y)
+            boundingBox.yMax = Math.max(boundingBox.yMax, point.y)
         }
 
         private fun validate() {
