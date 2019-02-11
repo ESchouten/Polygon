@@ -9,7 +9,6 @@ import java.awt.Point
 import java.awt.Rectangle
 import java.awt.Shape
 import java.io.Serializable
-import java.util.Arrays
 
 private const val MIN_LENGTH = 4
 
@@ -78,8 +77,8 @@ class Polygon(var xpoints: IntArray,
                 newLength = Integer.highestOneBit(newLength)
             }
 
-            xpoints = Arrays.copyOf(xpoints, newLength)
-            ypoints = Arrays.copyOf(ypoints, newLength)
+            xpoints = xpoints.copyOf(newLength)
+            ypoints = ypoints.copyOf(newLength)
         }
         xpoints[npoints] = x
         ypoints[npoints] = y
