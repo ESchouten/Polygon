@@ -1,6 +1,6 @@
 package com.erikschouten.polygon
 
-data class Point(
+open class Point(
     var x: Double,
     var y: Double
 ) {

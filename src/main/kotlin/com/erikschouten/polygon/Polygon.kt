@@ -2,7 +2,7 @@ package com.erikschouten.polygon
 
 import java.util.*
 
-class Polygon private constructor(
+open class Polygon private constructor(
     private val sides: List<Line>,
     private val boundingBox: BoundingBox
 ) {
