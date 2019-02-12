@@ -175,17 +175,22 @@ class PolygonTests {
 
         val customLines = polygon.sides.map { CustomLine(it) }
 
-        val polygon2 = Polygon(customLines)
+        val polygon2 = Polygon(customLines.map { it.toLine() })
 
         assert(polygon2.contains(52.3545238, 4.9585468))
         assert(polygon2.contains(52.3545239, 4.9585469))
+        assert(!polygon2.contains(51.3545239, 4.9585469))
     }
 
-    private class CustomLine(start: CustomPoint, end: CustomPoint) : Line(start, end) {
+    private class CustomLine(val start: CustomPoint, val end: CustomPoint) {
         constructor(line: Line): this(CustomPoint(line.start), CustomPoint(line.end))
+
+        fun toLine() = Line(start.toPoint(), end.toPoint())
     }
 
-    private class CustomPoint(x: Number, y: Number) : Point(x, y) {
+    private class CustomPoint(val x: Number, val y: Number) {
         constructor(point: Point): this(point.x, point.y)
+
+        fun toPoint() = Point(x, y)
     }
 }

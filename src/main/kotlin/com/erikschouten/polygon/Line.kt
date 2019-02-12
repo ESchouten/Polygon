@@ -1,6 +1,6 @@
 package com.erikschouten.polygon
 
-open class Line(
+data class Line(
     val start: Point,
     val end: Point
 ) {
