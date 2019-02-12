@@ -1,5 +1,6 @@
 package com.erikschouten
 
+import com.erikschouten.polygon.Line
 import com.erikschouten.polygon.Point
 import com.erikschouten.polygon.Polygon
 import org.junit.Test
@@ -158,5 +159,33 @@ class PolygonTests {
 
         assert(polygon.contains(52.3545238, 4.9585468))
         assert(polygon.contains(52.3545239, 4.9585469))
+    }
+
+    @Test
+    fun customClassTest() {
+        val polygon = Polygon.Builder()
+            .addVertex(52.3545238, 4.9585468)
+            .addVertex(52.3545238, 4.9585470)
+            .addVertex(52.3545240, 4.9585470)
+            .addVertex(52.3545240, 4.9585468)
+            .build()
+
+        assert(polygon.contains(52.3545238, 4.9585468))
+        assert(polygon.contains(52.3545239, 4.9585469))
+
+        val customLines = polygon.sides.map { CustomLine(it) }
+
+        val polygon2 = Polygon(customLines)
+
+        assert(polygon2.contains(52.3545238, 4.9585468))
+        assert(polygon2.contains(52.3545239, 4.9585469))
+    }
+
+    private class CustomLine(start: CustomPoint, end: CustomPoint) : Line(start, end) {
+        constructor(line: Line): this(CustomPoint(line.start), CustomPoint(line.end))
+    }
+
+    private class CustomPoint(x: Number, y: Number) : Point(x, y) {
+        constructor(point: Point): this(point.x, point.y)
     }
 }

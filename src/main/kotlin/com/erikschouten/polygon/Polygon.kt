@@ -2,10 +2,19 @@ package com.erikschouten.polygon
 
 import java.util.*
 
-open class Polygon private constructor(
-    private val sides: List<Line>,
+class Polygon private constructor(
+    val sides: List<Line>,
     private val boundingBox: BoundingBox
 ) {
+
+    constructor(sides: List<Line>): this(sides, BoundingBox())
+
+    init {
+        sides.forEach {
+            boundingBox.updateBoundingBox(it.start)
+            boundingBox.updateBoundingBox(it.end)
+        }
+    }
 
     fun contains(x: Number, y: Number) = contains(Point(x, y))
 
@@ -77,7 +86,7 @@ open class Polygon private constructor(
                 isClosed = false
             }
 
-            updateBoundingBox(point)
+            boundingBox.updateBoundingBox(point)
             vertexes.add(point)
 
             if (vertexes.size > 1) {
@@ -107,13 +116,6 @@ open class Polygon private constructor(
             return Polygon(sides, boundingBox)
         }
 
-        private fun updateBoundingBox(point: Point) {
-            boundingBox.xMin = Math.min(boundingBox.xMin, point.x)
-            boundingBox.xMax = Math.max(boundingBox.xMax, point.x)
-            boundingBox.yMin = Math.min(boundingBox.yMin, point.y)
-            boundingBox.yMax = Math.max(boundingBox.yMax, point.y)
-        }
-
         private fun validate() {
             if (vertexes.size < 3) {
                 throw RuntimeException("Polygon must have at least 3 points")
@@ -126,5 +128,12 @@ open class Polygon private constructor(
         var xMin = java.lang.Double.POSITIVE_INFINITY
         var yMax = java.lang.Double.NEGATIVE_INFINITY
         var yMin = java.lang.Double.POSITIVE_INFINITY
+
+        fun updateBoundingBox(point: Point) {
+            xMin = Math.min(xMin, point.x)
+            xMax = Math.max(xMax, point.x)
+            yMin = Math.min(yMin, point.y)
+            yMax = Math.max(yMax, point.y)
+        }
     }
 }
